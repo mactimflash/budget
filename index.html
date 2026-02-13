@@ -161,11 +161,11 @@
         <div class="row" style="margin-top:10px">
           <div>
             <label>Ngân sách tháng (VND)</label>
-            <input id="monthlyBudgetInput" inputmode="numeric" placeholder="12000000" />
+            <input id="monthlyBudgetInput" inputmode="numeric" pattern="[0-9]*" placeholder="12,000,000" />
           </div>
           <div>
             <label>Daily limit (VND) — để trống = auto chia theo ngày còn lại</label>
-            <input id="dailyLimitInput" inputmode="numeric" placeholder="0" />
+            <input id="dailyLimitInput" inputmode="numeric" pattern="[0-9]*" placeholder="0" />
           </div>
         </div>
         <div class="row">
@@ -196,7 +196,7 @@
         </div>
         <div>
           <label>Số tiền (VND)</label>
-          <input id="amount" inputmode="numeric" placeholder="45000" />
+          <input id="amount" inputmode="numeric" pattern="[0-9]*" placeholder="100,000" />
         </div>
       </div>
 
@@ -260,6 +260,27 @@
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+
+  // ====== Auto add comma while typing for amount ======
+  const amountInput = $("amount");
+  amountInput.addEventListener("input", (e) => {
+    let value = e.target.value;
+    value = value.replace(/[^\d]/g, ""); // keep digits only
+    if (!value) { e.target.value = ""; return; }
+    e.target.value = Number(value).toLocaleString("en-US");
+  });
+
+  // Optional: format monthly budget & daily limit inputs too
+  function bindCommaInput(id){
+    const el = $(id);
+    el.addEventListener("input", (e) => {
+      let v = e.target.value.replace(/[^\d]/g, "");
+      if (!v) { e.target.value = ""; return; }
+      e.target.value = Number(v).toLocaleString("en-US");
+    });
+  }
+  bindCommaInput("monthlyBudgetInput");
+  bindCommaInput("dailyLimitInput");
 
   async function refresh() {
     const base = $("base").value.trim();
@@ -326,6 +347,8 @@
   $("submit").onclick = async () => {
     const uid = $("uid").value.trim() || UID_DEFAULT;
     const category = $("category").value;
+
+    // amount is formatted like "100,000" -> worker already strips commas, but we can also keep it
     const amount = $("amount").value.trim();
     const reason = $("reason").value.trim();
 
@@ -343,7 +366,7 @@
       await submitExpense({
         uid,
         category: el.dataset.cat,
-        amount: el.dataset.amt,
+        amount: el.dataset.amt, // plain digits
         reason: el.dataset.reason
       });
     });
@@ -355,7 +378,7 @@
     const base = $("base").value.trim();
     const uid = $("uid").value.trim() || UID_DEFAULT;
 
-    const monthlyBudget = ($("monthlyBudgetInput").value || "").trim();
+    const monthlyBudget = ($("monthlyBudgetInput").value || "").trim(); // "12,000,000"
     const dailyLimit = ($("dailyLimitInput").value || "").trim();
     const chatId = ($("chatIdInput").value || "").trim();
 
