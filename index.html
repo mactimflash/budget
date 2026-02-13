@@ -8,7 +8,7 @@
     :root{
       --bg:#0b1020;
       --card:rgba(255,255,255,.08);
-      --card2:rgba(255,255,255,.06);
+      --card2:rgba(255,255,255,.05);
       --line:rgba(255,255,255,.12);
       --text:#eaf0ff;
       --muted:rgba(234,240,255,.7);
@@ -28,14 +28,14 @@
       color:var(--text);
     }
     .wrap{max-width:980px;margin:0 auto;padding:18px}
-    .top{
-      display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px
-    }
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
     .brand h1{font-size:18px;margin:0}
     .brand .sub{font-size:12px;color:var(--muted);margin-top:3px}
     .pill{
-      border:1px solid var(--line);background:rgba(255,255,255,.05);
-      padding:8px 10px;border-radius:999px;font-size:12px;color:var(--muted)
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.05);
+      padding:8px 10px;border-radius:999px;
+      font-size:12px;color:var(--muted)
     }
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media(max-width:860px){.grid{grid-template-columns:1fr}}
@@ -65,16 +65,20 @@
     }
     input::placeholder{color:rgba(234,240,255,.45)}
     button{
-      background: linear-gradient(180deg, rgba(122,168,255,.9), rgba(122,168,255,.6));
+      background: linear-gradient(180deg, rgba(122,168,255,.92), rgba(122,168,255,.62));
       border:none;
       cursor:pointer;
-      font-weight:700;
+      font-weight:800;
       box-shadow: 0 10px 22px rgba(122,168,255,.22);
     }
     button:active{transform: translateY(1px)}
-    .quick{
-      display:flex;flex-wrap:wrap;gap:8px;margin-top:10px
+    .btn2{
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow:none;
+      font-weight:700;
     }
+    .quick{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
     .qbtn{
       border:1px solid var(--line);
       background:rgba(255,255,255,.06);
@@ -96,12 +100,14 @@
       border:1px solid rgba(255,255,255,.08);
     }
     .item .left{min-width:0}
-    .item .t{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .item .t{font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .item .s{font-size:12px;color:var(--muted);margin-top:2px}
-    .item .amt{font-weight:800}
+    .item .amt{font-weight:900}
     .neg{color:var(--bad)}
-    .pos{color:var(--good)}
     .footer{margin:18px 0 10px;color:rgba(234,240,255,.45);font-size:12px;text-align:center}
+    details{border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.04)}
+    summary{cursor:pointer;color:var(--muted);font-size:12px}
+    .hint{font-size:12px;color:rgba(234,240,255,.55);margin-top:8px;line-height:1.35}
   </style>
 </head>
 <body>
@@ -109,7 +115,7 @@
     <div class="top">
       <div class="brand">
         <h1>💸 Cashflow Demo</h1>
-        <div class="sub">Ghi chi tiêu nhanh • Tính còn lại hôm nay & tháng • Mobile-first</div>
+        <div class="sub">Web nhập chi tiêu • Worker + KV xử lý • Telegram notify (group mặc định)</div>
       </div>
       <div class="pill" id="clock">--</div>
     </div>
@@ -142,15 +148,41 @@
       <div class="row">
         <div>
           <label>Worker URL</label>
-          <input id="base" placeholder="https://xxxx.workers.dev" />
+          <input id="base" placeholder="https://budget.starlinksatellitewifi.workers.dev" />
         </div>
         <div>
-          <label>User ID (demo tuỳ ý)</label>
+          <label>User ID (demo)</label>
           <input id="uid" placeholder="demo" />
         </div>
       </div>
 
-      <div class="row">
+      <details style="margin-top:10px">
+        <summary>⚙️ Settings (optional) – set ngân sách / daily limit / chat_id override</summary>
+        <div class="row" style="margin-top:10px">
+          <div>
+            <label>Ngân sách tháng (VND)</label>
+            <input id="monthlyBudgetInput" inputmode="numeric" placeholder="12000000" />
+          </div>
+          <div>
+            <label>Daily limit (VND) — để trống = auto chia theo ngày còn lại</label>
+            <input id="dailyLimitInput" inputmode="numeric" placeholder="0" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Telegram Chat ID (override) — để trống dùng group mặc định trong Worker</label>
+            <input id="chatIdInput" placeholder="-4549193727" />
+          </div>
+          <div style="display:flex;align-items:end;gap:10px">
+            <button class="btn2" id="saveCfg" type="button">Lưu settings</button>
+          </div>
+        </div>
+        <div class="hint">
+          Nếu bạn không nhập Chat ID ở đây, Worker sẽ tự gửi về <b>DEFAULT_TELEGRAM_CHAT_ID</b> đã set trong Cloudflare.
+        </div>
+      </details>
+
+      <div class="row" style="margin-top:10px">
         <div>
           <label>Category</label>
           <select id="category">
@@ -179,7 +211,11 @@
         <div class="qbtn" data-amt="100000" data-cat="shopping" data-reason="mua lặt vặt">+ 100k mua đồ</div>
       </div>
 
-      <button id="submit" style="margin-top:12px">Ghi chi tiêu</button>
+      <div class="row" style="margin-top:12px">
+        <button id="submit">Ghi chi tiêu</button>
+        <button class="btn2" id="refreshBtn" type="button">Refresh</button>
+      </div>
+
       <div class="status" id="status">Ready.</div>
     </div>
 
@@ -188,12 +224,12 @@
       <div class="list" id="history"></div>
     </div>
 
-    <div class="footer">Demo-only • No auth • Data stored in Cloudflare KV</div>
+    <div class="footer">Demo-only • No auth • Data in Cloudflare KV</div>
   </div>
 
 <script>
   // ====== CONFIG ======
-  const WORKER_BASE_DEFAULT = "https://budget.starlinksatellitewifi.workers.dev"; // <-- đổi
+  const WORKER_BASE_DEFAULT = "https://budget.starlinksatellitewifi.workers.dev";
   const UID_DEFAULT = "demo";
 
   // ====== helpers ======
@@ -207,8 +243,7 @@
   }
 
   function tickClock() {
-    const now = new Date();
-    $("clock").textContent = now.toLocaleString("vi-VN");
+    $("clock").textContent = new Date().toLocaleString("vi-VN");
   }
   setInterval(tickClock, 1000); tickClock();
 
@@ -222,45 +257,49 @@
   }
   loadLocal();
 
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
   async function refresh() {
     const base = $("base").value.trim();
     const uid = $("uid").value.trim() || UID_DEFAULT;
 
-    const s = await fetch(`${base}/api/summary?uid=${encodeURIComponent(uid)}`).then(r => r.json());
-    if (!s.ok) { setStatus("Cannot load summary. Check Worker URL.", "err"); return; }
+    try{
+      const s = await fetch(`${base}/api/summary?uid=${encodeURIComponent(uid)}`).then(r => r.json());
+      if (!s.ok) throw new Error("summary_error");
 
-    $("todayTag").textContent = s.day;
-    $("monthTag").textContent = s.month;
+      $("todayTag").textContent = s.day;
+      $("monthTag").textContent = s.month;
 
-    $("dailyRemaining").textContent = money(s.dailyRemaining);
-    $("dailyLimit").textContent = money(s.dailyLimit);
-    $("spentToday").textContent = money(s.spentToday);
+      $("dailyRemaining").textContent = money(s.dailyRemaining);
+      $("dailyLimit").textContent = money(s.dailyLimit);
+      $("spentToday").textContent = money(s.spentToday);
 
-    $("monthRemaining").textContent = money(s.monthRemaining);
-    $("monthlyBudget").textContent = money(s.monthlyBudget);
-    $("monthTotal").textContent = money(s.monthTotal);
+      $("monthRemaining").textContent = money(s.monthRemaining);
+      $("monthlyBudget").textContent = money(s.monthlyBudget);
+      $("monthTotal").textContent = money(s.monthTotal);
 
-    const h = await fetch(`${base}/api/history?uid=${encodeURIComponent(uid)}&month=${encodeURIComponent(s.month)}`).then(r => r.json());
-    const list = (h.list || []).slice().reverse().slice(0, 12);
+      const h = await fetch(`${base}/api/history?uid=${encodeURIComponent(uid)}&month=${encodeURIComponent(s.month)}`).then(r => r.json());
+      const list = (h.list || []).slice().reverse().slice(0, 12);
 
-    $("history").innerHTML = list.length ? list.map(x => {
-      const title = `${x.category} • ${x.reason || "no reason"}`;
-      const time = new Date(x.ts * 1000).toLocaleTimeString("vi-VN");
-      return `
-        <div class="item">
-          <div class="left">
-            <div class="t">${escapeHtml(title)}</div>
-            <div class="s">${x.day} • ${time}</div>
-          </div>
-          <div class="amt neg">-${money(x.amount)}</div>
-        </div>`;
-    }).join("") : `<div class="muted">Chưa có dữ liệu.</div>`;
+      $("history").innerHTML = list.length ? list.map(x => {
+        const title = `${x.category} • ${x.reason || "no reason"}`;
+        const time = new Date(x.ts * 1000).toLocaleTimeString("vi-VN");
+        return `
+          <div class="item">
+            <div class="left">
+              <div class="t">${escapeHtml(title)}</div>
+              <div class="s">${x.day} • ${time}</div>
+            </div>
+            <div class="amt neg">-${money(x.amount)}</div>
+          </div>`;
+      }).join("") : `<div class="hint">Chưa có dữ liệu.</div>`;
 
-    setStatus("Synced ✓", "ok");
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      setStatus("Synced ✓", "ok");
+    }catch(e){
+      setStatus("Cannot load. Check Worker URL.", "err");
+    }
   }
 
   async function submitExpense(payload) {
@@ -274,15 +313,16 @@
         body: JSON.stringify(payload)
       });
       const j = await r.json();
-      if (!j.ok) throw new Error(j.error || "error");
-      setStatus("Logged ✓ Telegram will notify (if configured).", "ok");
+      if (!j.ok) throw new Error(j.error || "expense_error");
+
+      setStatus("Logged ✓ Telegram will notify (if Worker BOT_TOKEN + default chat id set).", "ok");
       await refresh();
     } catch (e) {
       setStatus("Error: " + e.message, "err");
     }
   }
 
-  // button submit
+  // Submit
   $("submit").onclick = async () => {
     const uid = $("uid").value.trim() || UID_DEFAULT;
     const category = $("category").value;
@@ -296,16 +336,50 @@
     $("reason").value = "";
   };
 
-  // quick buttons
+  // Quick buttons
   document.querySelectorAll(".qbtn").forEach(el => {
     el.addEventListener("click", async () => {
       const uid = $("uid").value.trim() || UID_DEFAULT;
-      const amount = el.dataset.amt;
-      const category = el.dataset.cat;
-      const reason = el.dataset.reason;
-      await submitExpense({ uid, category, amount, reason });
+      await submitExpense({
+        uid,
+        category: el.dataset.cat,
+        amount: el.dataset.amt,
+        reason: el.dataset.reason
+      });
     });
   });
+
+  // Settings save (optional)
+  $("saveCfg").onclick = async () => {
+    saveLocal();
+    const base = $("base").value.trim();
+    const uid = $("uid").value.trim() || UID_DEFAULT;
+
+    const monthlyBudget = ($("monthlyBudgetInput").value || "").trim();
+    const dailyLimit = ($("dailyLimitInput").value || "").trim();
+    const chatId = ($("chatIdInput").value || "").trim();
+
+    const payload = { uid };
+    if (monthlyBudget) payload.monthlyBudget = monthlyBudget;
+    if (dailyLimit) payload.dailyLimit = dailyLimit;
+    if (chatId) payload.telegramChatId = chatId;
+
+    try{
+      const r = await fetch(`${base}/api/config`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+      const j = await r.json();
+      if(!j.ok) throw new Error(j.error || "config_error");
+      setStatus("Settings saved ✓", "ok");
+      await refresh();
+    }catch(e){
+      setStatus("Save settings error: " + e.message, "err");
+    }
+  };
+
+  $("refreshBtn").onclick = refresh;
 
   refresh();
 </script>
