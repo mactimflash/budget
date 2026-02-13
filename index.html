@@ -145,19 +145,10 @@
     </div>
 
     <div class="card" style="margin-top:12px">
-      <div class="row">
-        <div>
-          <label>Worker URL</label>
-          <input id="base" placeholder="https://budget.starlinksatellitewifi.workers.dev" />
-        </div>
-        <div>
-          <label>User ID (demo)</label>
-          <input id="uid" placeholder="demo" />
-        </div>
-      </div>
+      <!-- Removed Worker URL + User ID inputs from UI (fixed in code) -->
 
-      <details style="margin-top:10px">
-        <summary>⚙️ Settings (optional) – set ngân sách / daily limit / chat_id override</summary>
+      <details style="margin-top:0px" open>
+        <summary>⚙️ Settings – Thiết lập ngân sách tháng</summary>
         <div class="row" style="margin-top:10px">
           <div>
             <label>Ngân sách tháng (VND)</label>
@@ -169,16 +160,9 @@
           </div>
         </div>
         <div class="row">
-          <div>
-            <label>Telegram Chat ID (override) — để trống dùng group mặc định trong Worker</label>
-            <input id="chatIdInput" placeholder="-4549193727" />
-          </div>
           <div style="display:flex;align-items:end;gap:10px">
             <button class="btn2" id="saveCfg" type="button">Lưu settings</button>
           </div>
-        </div>
-        <div class="hint">
-          Nếu bạn không nhập Chat ID ở đây, Worker sẽ tự gửi về <b>DEFAULT_TELEGRAM_CHAT_ID</b> đã set trong Cloudflare.
         </div>
       </details>
 
@@ -228,9 +212,9 @@
   </div>
 
 <script>
-  // ====== CONFIG ======
-  const WORKER_BASE_DEFAULT = "https://budget.starlinksatellitewifi.workers.dev";
-  const UID_DEFAULT = "demo";
+  // ====== FIXED CONFIG (hidden from UI) ======
+  const WORKER_BASE = "https://budget.starlinksatellitewifi.workers.dev";
+  const UID = "demo";
 
   // ====== helpers ======
   const $ = (id) => document.getElementById(id);
@@ -247,47 +231,29 @@
   }
   setInterval(tickClock, 1000); tickClock();
 
-  function loadLocal() {
-    $("base").value = localStorage.getItem("base") || WORKER_BASE_DEFAULT;
-    $("uid").value = localStorage.getItem("uid") || UID_DEFAULT;
-  }
-  function saveLocal() {
-    localStorage.setItem("base", $("base").value.trim());
-    localStorage.setItem("uid", $("uid").value.trim());
-  }
-  loadLocal();
-
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // ====== Auto add comma while typing for amount ======
-  const amountInput = $("amount");
-  amountInput.addEventListener("input", (e) => {
-    let value = e.target.value;
-    value = value.replace(/[^\d]/g, ""); // keep digits only
-    if (!value) { e.target.value = ""; return; }
-    e.target.value = Number(value).toLocaleString("en-US");
-  });
-
-  // Optional: format monthly budget & daily limit inputs too
+  // ====== Auto add comma while typing for amount & budget inputs ======
   function bindCommaInput(id){
     const el = $(id);
+    if (!el) return;
     el.addEventListener("input", (e) => {
       let v = e.target.value.replace(/[^\d]/g, "");
       if (!v) { e.target.value = ""; return; }
+      // Avoid losing big integers by formatting as string:
+      // Use Intl for readability, but keep as Number for typical VND ranges.
       e.target.value = Number(v).toLocaleString("en-US");
     });
   }
+  bindCommaInput("amount");
   bindCommaInput("monthlyBudgetInput");
   bindCommaInput("dailyLimitInput");
 
   async function refresh() {
-    const base = $("base").value.trim();
-    const uid = $("uid").value.trim() || UID_DEFAULT;
-
     try{
-      const s = await fetch(`${base}/api/summary?uid=${encodeURIComponent(uid)}`).then(r => r.json());
+      const s = await fetch(`${WORKER_BASE}/api/summary?uid=${encodeURIComponent(UID)}`).then(r => r.json());
       if (!s.ok) throw new Error("summary_error");
 
       $("todayTag").textContent = s.day;
@@ -301,7 +267,7 @@
       $("monthlyBudget").textContent = money(s.monthlyBudget);
       $("monthTotal").textContent = money(s.monthTotal);
 
-      const h = await fetch(`${base}/api/history?uid=${encodeURIComponent(uid)}&month=${encodeURIComponent(s.month)}`).then(r => r.json());
+      const h = await fetch(`${WORKER_BASE}/api/history?uid=${encodeURIComponent(UID)}&month=${encodeURIComponent(s.month)}`).then(r => r.json());
       const list = (h.list || []).slice().reverse().slice(0, 12);
 
       $("history").innerHTML = list.length ? list.map(x => {
@@ -319,16 +285,14 @@
 
       setStatus("Synced ✓", "ok");
     }catch(e){
-      setStatus("Cannot load. Check Worker URL.", "err");
+      setStatus("Cannot load. Check Worker deployment.", "err");
     }
   }
 
   async function submitExpense(payload) {
-    saveLocal();
-    const base = $("base").value.trim();
     setStatus("Sending...", "");
     try {
-      const r = await fetch(`${base}/api/expense`, {
+      const r = await fetch(`${WORKER_BASE}/api/expense`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -336,25 +300,22 @@
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || "expense_error");
 
-      setStatus("Logged ✓ Telegram will notify (if Worker BOT_TOKEN + default chat id set).", "ok");
+      setStatus("Logged ✓ Telegram will notify (default group in Worker).", "ok");
       await refresh();
     } catch (e) {
       setStatus("Error: " + e.message, "err");
     }
   }
 
-  // Submit
+  // Submit expense
   $("submit").onclick = async () => {
-    const uid = $("uid").value.trim() || UID_DEFAULT;
     const category = $("category").value;
-
-    // amount is formatted like "100,000" -> worker already strips commas, but we can also keep it
-    const amount = $("amount").value.trim();
-    const reason = $("reason").value.trim();
+    const amount = ($("amount").value || "").trim(); // formatted "100,000"
+    const reason = ($("reason").value || "").trim();
 
     if (!amount) return setStatus("Please input amount.", "err");
 
-    await submitExpense({ uid, category, amount, reason });
+    await submitExpense({ uid: UID, category, amount, reason });
     $("amount").value = "";
     $("reason").value = "";
   };
@@ -362,9 +323,8 @@
   // Quick buttons
   document.querySelectorAll(".qbtn").forEach(el => {
     el.addEventListener("click", async () => {
-      const uid = $("uid").value.trim() || UID_DEFAULT;
       await submitExpense({
-        uid,
+        uid: UID,
         category: el.dataset.cat,
         amount: el.dataset.amt, // plain digits
         reason: el.dataset.reason
@@ -372,23 +332,17 @@
     });
   });
 
-  // Settings save (optional)
+  // Save settings (budget + daily limit only)
   $("saveCfg").onclick = async () => {
-    saveLocal();
-    const base = $("base").value.trim();
-    const uid = $("uid").value.trim() || UID_DEFAULT;
-
-    const monthlyBudget = ($("monthlyBudgetInput").value || "").trim(); // "12,000,000"
+    const monthlyBudget = ($("monthlyBudgetInput").value || "").trim();
     const dailyLimit = ($("dailyLimitInput").value || "").trim();
-    const chatId = ($("chatIdInput").value || "").trim();
 
-    const payload = { uid };
+    const payload = { uid: UID };
     if (monthlyBudget) payload.monthlyBudget = monthlyBudget;
     if (dailyLimit) payload.dailyLimit = dailyLimit;
-    if (chatId) payload.telegramChatId = chatId;
 
     try{
-      const r = await fetch(`${base}/api/config`, {
+      const r = await fetch(`${WORKER_BASE}/api/config`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify(payload)
