@@ -108,6 +108,9 @@
     details{border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.04)}
     summary{cursor:pointer;color:var(--muted);font-size:12px}
     .hint{font-size:12px;color:rgba(234,240,255,.55);margin-top:8px;line-height:1.35}
+    .quick-title{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+    .linklike{font-size:12px;color:rgba(234,240,255,.65);cursor:pointer;user-select:none}
+    .linklike:hover{color:rgba(122,168,255,.9)}
   </style>
 </head>
 <body>
@@ -145,9 +148,7 @@
     </div>
 
     <div class="card" style="margin-top:12px">
-      <!-- Removed Worker URL + User ID inputs from UI (fixed in code) -->
-
-      <details style="margin-top:0px" open>
+      <details style="margin-top:0px">
         <summary>⚙️ Settings – Thiết lập ngân sách tháng</summary>
         <div class="row" style="margin-top:10px">
           <div>
@@ -187,7 +188,17 @@
       <label>Lý do</label>
       <input id="reason" placeholder="vd: cafe / ăn trưa / đổ xăng..." />
 
-      <div class="quick">
+      <div class="quick-title">
+        <div class="section-title" style="margin:10px 0 0">⚡ Gợi ý nhanh (cá nhân hoá)</div>
+        <div class="linklike" id="clearSuggestions">Xoá gợi ý</div>
+      </div>
+      <div class="quick" id="smartQuick"></div>
+
+      <div class="quick-title">
+        <div class="section-title" style="margin:10px 0 0">🚀 Presets</div>
+        <div class="linklike" id="pinCurrent">Ghim mẫu hiện tại</div>
+      </div>
+      <div class="quick" id="presetQuick">
         <div class="qbtn" data-amt="15000" data-cat="food" data-reason="trà đá">+ 15k trà đá</div>
         <div class="qbtn" data-amt="35000" data-cat="food" data-reason="cafe">+ 35k cafe</div>
         <div class="qbtn" data-amt="70000" data-cat="food" data-reason="ăn trưa">+ 70k ăn trưa</div>
@@ -208,7 +219,7 @@
       <div class="list" id="history"></div>
     </div>
 
-    <div class="footer">Demo-only • No auth • Data in Cloudflare KV</div>
+    <div class="footer">Demo-only • No auth • Data in Cloudflare KV • Personalized quick suggestions stored in your browser</div>
   </div>
 
 <script>
@@ -235,21 +246,119 @@
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // ====== Auto add comma while typing for amount & budget inputs ======
+  // ====== Comma formatting inputs ======
   function bindCommaInput(id){
     const el = $(id);
     if (!el) return;
     el.addEventListener("input", (e) => {
       let v = e.target.value.replace(/[^\d]/g, "");
       if (!v) { e.target.value = ""; return; }
-      // Avoid losing big integers by formatting as string:
-      // Use Intl for readability, but keep as Number for typical VND ranges.
       e.target.value = Number(v).toLocaleString("en-US");
     });
   }
   bindCommaInput("amount");
   bindCommaInput("monthlyBudgetInput");
   bindCommaInput("dailyLimitInput");
+
+  // ====== Personalization (learn user's reason patterns) ======
+  // Store top quick actions locally (per browser/device) for fast re-use
+  const SUG_KEY = "cashflow_suggestions_v1";
+  const MAX_SUG = 10;
+
+  function normalizeReason(r){
+    return (r || "").trim().toLowerCase().replace(/\s+/g, " ").slice(0, 60);
+  }
+  function parseNumberLike(v){
+    const n = parseInt(String(v || "").replace(/[^\d]/g, ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function loadSuggestions(){
+    try{
+      const raw = localStorage.getItem(SUG_KEY);
+      const data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data : [];
+    }catch{ return []; }
+  }
+  function saveSuggestions(list){
+    localStorage.setItem(SUG_KEY, JSON.stringify(list.slice(0, MAX_SUG)));
+  }
+
+  // Weight: frequency + recency
+  function scoreItem(it){
+    const now = Date.now();
+    const ageDays = (now - (it.lastTs || 0)) / (1000*60*60*24);
+    const recency = Math.max(0, 30 - ageDays); // 0..30
+    return (it.count || 0) * 10 + recency;
+  }
+
+  function upsertSuggestion({category, amount, reason}){
+    const r = normalizeReason(reason);
+    const a = parseNumberLike(amount);
+    if (!r || a <= 0) return;
+
+    const list = loadSuggestions();
+    const key = `${category}|${a}|${r}`;
+    const found = list.find(x => x.key === key);
+    if (found){
+      found.count = (found.count || 0) + 1;
+      found.lastTs = Date.now();
+    } else {
+      list.push({
+        key,
+        category,
+        amount: a,
+        reason: r,
+        count: 1,
+        lastTs: Date.now()
+      });
+    }
+
+    // Sort by score desc
+    list.sort((x,y) => scoreItem(y) - scoreItem(x));
+    saveSuggestions(list);
+  }
+
+  function renderSmartQuick(){
+    const el = $("smartQuick");
+    const list = loadSuggestions().slice(0, 6); // show top 6
+    if (!list.length){
+      el.innerHTML = `<div class="hint">Chưa có gợi ý cá nhân. Hãy ghi 2–3 khoản chi, hệ thống sẽ tự học.</div>`;
+      return;
+    }
+
+    el.innerHTML = list.map(x => {
+      const label = `+ ${money(x.amount).replace("đ","")} ${escapeHtml(x.reason)}`;
+      return `<div class="qbtn" data-amt="${x.amount}" data-cat="${escapeHtml(x.category)}" data-reason="${escapeHtml(x.reason)}">${label}</div>`;
+    }).join("");
+
+    // Bind click
+    el.querySelectorAll(".qbtn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await submitExpense({
+          uid: UID,
+          category: btn.dataset.cat,
+          amount: btn.dataset.amt,
+          reason: btn.dataset.reason
+        });
+      });
+    });
+  }
+
+  $("clearSuggestions").onclick = () => {
+    localStorage.removeItem(SUG_KEY);
+    renderSmartQuick();
+    setStatus("Đã xoá gợi ý cá nhân hoá.", "ok");
+  };
+
+  // "Pin current": turn current fields into a suggestion immediately
+  $("pinCurrent").onclick = () => {
+    const category = $("category").value;
+    const amount = $("amount").value;
+    const reason = $("reason").value;
+    upsertSuggestion({ category, amount, reason });
+    renderSmartQuick();
+    setStatus("Đã ghim mẫu hiện tại vào gợi ý nhanh.", "ok");
+  };
 
   async function refresh() {
     try{
@@ -300,6 +409,14 @@
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || "expense_error");
 
+      // Learn from user's behavior (category + amount + reason)
+      upsertSuggestion({
+        category: payload.category,
+        amount: payload.amount,
+        reason: payload.reason
+      });
+      renderSmartQuick();
+
       setStatus("Logged ✓ Telegram will notify (default group in Worker).", "ok");
       await refresh();
     } catch (e) {
@@ -320,13 +437,13 @@
     $("reason").value = "";
   };
 
-  // Quick buttons
-  document.querySelectorAll(".qbtn").forEach(el => {
+  // Preset quick buttons (existing)
+  document.querySelectorAll("#presetQuick .qbtn").forEach(el => {
     el.addEventListener("click", async () => {
       await submitExpense({
         uid: UID,
         category: el.dataset.cat,
-        amount: el.dataset.amt, // plain digits
+        amount: el.dataset.amt,
         reason: el.dataset.reason
       });
     });
@@ -358,6 +475,8 @@
 
   $("refreshBtn").onclick = refresh;
 
+  // Init
+  renderSmartQuick();
   refresh();
 </script>
 </body>
