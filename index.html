@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cashflow Demo</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:rgba(255,255,255,.08);
+      --card2:rgba(255,255,255,.06);
+      --line:rgba(255,255,255,.12);
+      --text:#eaf0ff;
+      --muted:rgba(234,240,255,.7);
+      --good:#57f287;
+      --bad:#ff5c5c;
+      --accent:#7aa8ff;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: radial-gradient(1200px 800px at 10% 0%, #14224a 0%, var(--bg) 60%),
+                  radial-gradient(1000px 800px at 100% 20%, #2a144a 0%, transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:980px;margin:0 auto;padding:18px}
+    .top{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px
+    }
+    .brand h1{font-size:18px;margin:0}
+    .brand .sub{font-size:12px;color:var(--muted);margin-top:3px}
+    .pill{
+      border:1px solid var(--line);background:rgba(255,255,255,.05);
+      padding:8px 10px;border-radius:999px;font-size:12px;color:var(--muted)
+    }
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:860px){.grid{grid-template-columns:1fr}}
+    .card{
+      background: linear-gradient(180deg, var(--card), var(--card2));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+      backdrop-filter: blur(10px);
+    }
+    .kpi{display:flex;gap:10px;align-items:flex-end;justify-content:space-between}
+    .kpi .label{font-size:12px;color:var(--muted)}
+    .kpi .value{font-size:28px;font-weight:800;letter-spacing:.2px}
+    .kpi .meta{font-size:12px;color:var(--muted);margin-top:6px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:520px){.row{grid-template-columns:1fr}}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input, select, button{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(0,0,0,.22);
+      color:var(--text);
+      outline:none;
+    }
+    input::placeholder{color:rgba(234,240,255,.45)}
+    button{
+      background: linear-gradient(180deg, rgba(122,168,255,.9), rgba(122,168,255,.6));
+      border:none;
+      cursor:pointer;
+      font-weight:700;
+      box-shadow: 0 10px 22px rgba(122,168,255,.22);
+    }
+    button:active{transform: translateY(1px)}
+    .quick{
+      display:flex;flex-wrap:wrap;gap:8px;margin-top:10px
+    }
+    .qbtn{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;border-radius:999px;
+      font-size:12px;cursor:pointer;
+      user-select:none;
+    }
+    .qbtn:hover{border-color:rgba(122,168,255,.6)}
+    .status{margin-top:10px;font-size:12px;color:var(--muted)}
+    .status.ok{color:rgba(87,242,135,.95)}
+    .status.err{color:rgba(255,92,92,.95)}
+    .section-title{margin:14px 0 10px;font-size:13px;color:var(--muted)}
+    .list{display:flex;flex-direction:column;gap:10px}
+    .item{
+      display:flex;justify-content:space-between;gap:10px;
+      padding:10px 12px;border-radius:14px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .item .left{min-width:0}
+    .item .t{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .item .s{font-size:12px;color:var(--muted);margin-top:2px}
+    .item .amt{font-weight:800}
+    .neg{color:var(--bad)}
+    .pos{color:var(--good)}
+    .footer{margin:18px 0 10px;color:rgba(234,240,255,.45);font-size:12px;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <h1>💸 Cashflow Demo</h1>
+        <div class="sub">Ghi chi tiêu nhanh • Tính còn lại hôm nay & tháng • Mobile-first</div>
+      </div>
+      <div class="pill" id="clock">--</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="kpi">
+          <div>
+            <div class="label">Còn lại hôm nay</div>
+            <div class="value" id="dailyRemaining">--</div>
+            <div class="meta">Hạn mức: <b id="dailyLimit">--</b> • Đã chi: <b id="spentToday">--</b></div>
+          </div>
+          <div class="pill" id="todayTag">Today</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="kpi">
+          <div>
+            <div class="label">Còn lại tháng</div>
+            <div class="value" id="monthRemaining">--</div>
+            <div class="meta">Ngân sách: <b id="monthlyBudget">--</b> • Đã chi: <b id="monthTotal">--</b></div>
+          </div>
+          <div class="pill" id="monthTag">Month</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="row">
+        <div>
+          <label>Worker URL</label>
+          <input id="base" placeholder="https://xxxx.workers.dev" />
+        </div>
+        <div>
+          <label>User ID (demo tuỳ ý)</label>
+          <input id="uid" placeholder="demo" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Category</label>
+          <select id="category">
+            <option value="food">🍜 Ăn uống</option>
+            <option value="transport">🛵 Di chuyển</option>
+            <option value="shopping">🛍️ Mua sắm</option>
+            <option value="health">🩺 Sức khoẻ</option>
+            <option value="bill">🧾 Hoá đơn</option>
+            <option value="other">✨ Khác</option>
+          </select>
+        </div>
+        <div>
+          <label>Số tiền (VND)</label>
+          <input id="amount" inputmode="numeric" placeholder="45000" />
+        </div>
+      </div>
+
+      <label>Lý do</label>
+      <input id="reason" placeholder="vd: cafe / ăn trưa / đổ xăng..." />
+
+      <div class="quick">
+        <div class="qbtn" data-amt="15000" data-cat="food" data-reason="trà đá">+ 15k trà đá</div>
+        <div class="qbtn" data-amt="35000" data-cat="food" data-reason="cafe">+ 35k cafe</div>
+        <div class="qbtn" data-amt="70000" data-cat="food" data-reason="ăn trưa">+ 70k ăn trưa</div>
+        <div class="qbtn" data-amt="50000" data-cat="transport" data-reason="đổ xăng">+ 50k xăng</div>
+        <div class="qbtn" data-amt="100000" data-cat="shopping" data-reason="mua lặt vặt">+ 100k mua đồ</div>
+      </div>
+
+      <button id="submit" style="margin-top:12px">Ghi chi tiêu</button>
+      <div class="status" id="status">Ready.</div>
+    </div>
+
+    <div class="section-title">🧾 Chi tiêu gần nhất</div>
+    <div class="card">
+      <div class="list" id="history"></div>
+    </div>
+
+    <div class="footer">Demo-only • No auth • Data stored in Cloudflare KV</div>
+  </div>
+
+<script>
+  // ====== CONFIG ======
+  const WORKER_BASE_DEFAULT = "https://YOUR-WORKER.workers.dev"; // <-- đổi
+  const UID_DEFAULT = "demo";
+
+  // ====== helpers ======
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => (Number(n) || 0).toLocaleString("en-US") + "đ";
+
+  function setStatus(text, type="") {
+    const el = $("status");
+    el.textContent = text;
+    el.className = "status " + (type || "");
+  }
+
+  function tickClock() {
+    const now = new Date();
+    $("clock").textContent = now.toLocaleString("vi-VN");
+  }
+  setInterval(tickClock, 1000); tickClock();
+
+  function loadLocal() {
+    $("base").value = localStorage.getItem("base") || WORKER_BASE_DEFAULT;
+    $("uid").value = localStorage.getItem("uid") || UID_DEFAULT;
+  }
+  function saveLocal() {
+    localStorage.setItem("base", $("base").value.trim());
+    localStorage.setItem("uid", $("uid").value.trim());
+  }
+  loadLocal();
+
+  async function refresh() {
+    const base = $("base").value.trim();
+    const uid = $("uid").value.trim() || UID_DEFAULT;
+
+    const s = await fetch(`${base}/api/summary?uid=${encodeURIComponent(uid)}`).then(r => r.json());
+    if (!s.ok) { setStatus("Cannot load summary. Check Worker URL.", "err"); return; }
+
+    $("todayTag").textContent = s.day;
+    $("monthTag").textContent = s.month;
+
+    $("dailyRemaining").textContent = money(s.dailyRemaining);
+    $("dailyLimit").textContent = money(s.dailyLimit);
+    $("spentToday").textContent = money(s.spentToday);
+
+    $("monthRemaining").textContent = money(s.monthRemaining);
+    $("monthlyBudget").textContent = money(s.monthlyBudget);
+    $("monthTotal").textContent = money(s.monthTotal);
+
+    const h = await fetch(`${base}/api/history?uid=${encodeURIComponent(uid)}&month=${encodeURIComponent(s.month)}`).then(r => r.json());
+    const list = (h.list || []).slice().reverse().slice(0, 12);
+
+    $("history").innerHTML = list.length ? list.map(x => {
+      const title = `${x.category} • ${x.reason || "no reason"}`;
+      const time = new Date(x.ts * 1000).toLocaleTimeString("vi-VN");
+      return `
+        <div class="item">
+          <div class="left">
+            <div class="t">${escapeHtml(title)}</div>
+            <div class="s">${x.day} • ${time}</div>
+          </div>
+          <div class="amt neg">-${money(x.amount)}</div>
+        </div>`;
+    }).join("") : `<div class="muted">Chưa có dữ liệu.</div>`;
+
+    setStatus("Synced ✓", "ok");
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function submitExpense(payload) {
+    saveLocal();
+    const base = $("base").value.trim();
+    setStatus("Sending...", "");
+    try {
+      const r = await fetch(`${base}/api/expense`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "error");
+      setStatus("Logged ✓ Telegram will notify (if configured).", "ok");
+      await refresh();
+    } catch (e) {
+      setStatus("Error: " + e.message, "err");
+    }
+  }
+
+  // button submit
+  $("submit").onclick = async () => {
+    const uid = $("uid").value.trim() || UID_DEFAULT;
+    const category = $("category").value;
+    const amount = $("amount").value.trim();
+    const reason = $("reason").value.trim();
+
+    if (!amount) return setStatus("Please input amount.", "err");
+
+    await submitExpense({ uid, category, amount, reason });
+    $("amount").value = "";
+    $("reason").value = "";
+  };
+
+  // quick buttons
+  document.querySelectorAll(".qbtn").forEach(el => {
+    el.addEventListener("click", async () => {
+      const uid = $("uid").value.trim() || UID_DEFAULT;
+      const amount = el.dataset.amt;
+      const category = el.dataset.cat;
+      const reason = el.dataset.reason;
+      await submitExpense({ uid, category, amount, reason });
+    });
+  });
+
+  refresh();
+</script>
+</body>
+</html>
